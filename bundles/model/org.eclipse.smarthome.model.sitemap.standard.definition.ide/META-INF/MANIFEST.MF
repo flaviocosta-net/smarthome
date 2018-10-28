@@ -1,0 +1,16 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Eclipse SmartHome Sitemap Definition IDE (type SmartHome)
+Bundle-Vendor: Eclipse.org/SmartHome
+Bundle-Version: 0.10.0.qualifier
+Bundle-SymbolicName: org.eclipse.smarthome.model.sitemap.standard.definition.ide;singleton:=true
+Bundle-ActivationPolicy: lazy
+Require-Bundle: org.eclipse.smarthome.model.sitemap.standard.definition,
+ org.eclipse.xtext.ide,
+ org.eclipse.xtext.xbase.ide,
+ org.antlr.runtime
+Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Export-Package: org.eclipse.smarthome.model.sitemap.standard.ide.contentassist.antlr,
+ org.eclipse.smarthome.model.sitemap.standard.ide.contentassist.antlr.internal
+Automatic-Module-Name: org.eclipse.smarthome.model.sitemap.standard.definition.ide
+

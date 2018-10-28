@@ -1,0 +1,15 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Eclipse SmartHome Sitemap Rendering Model
+Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Bundle-SymbolicName: org.eclipse.smarthome.model.sitemap.rendering;singleton:=true
+Bundle-Vendor: Eclipse.org/SmartHome
+Bundle-Version: 0.10.0.qualifier
+Export-Package: org.eclipse.smarthome.core.library.sets,
+ org.eclipse.smarthome.model.sitemap.rendering,
+ org.eclipse.smarthome.model.sitemap.rendering.atom,
+ org.eclipse.smarthome.model.sitemap.rendering.container,
+ org.eclipse.smarthome.model.sitemap.rendering.style
+Automatic-Module-Name: org.eclipse.smarthome.model.sitemap.rendering
+Bundle-ActivationPolicy: lazy
+Import-Package: org.eclipse.jdt.annotation;resolution:=optional

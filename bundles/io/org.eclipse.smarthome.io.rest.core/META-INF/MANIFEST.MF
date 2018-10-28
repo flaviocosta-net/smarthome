@@ -59,6 +59,7 @@ Import-Package:
  org.eclipse.smarthome.core.thing.util,
  org.eclipse.smarthome.core.transform;resolution:=optional,
  org.eclipse.smarthome.core.types,
+ org.eclipse.smarthome.io.json,
  org.eclipse.smarthome.io.rest,
  org.eclipse.smarthome.io.rest.core.config,
  org.eclipse.smarthome.io.rest.core.item,

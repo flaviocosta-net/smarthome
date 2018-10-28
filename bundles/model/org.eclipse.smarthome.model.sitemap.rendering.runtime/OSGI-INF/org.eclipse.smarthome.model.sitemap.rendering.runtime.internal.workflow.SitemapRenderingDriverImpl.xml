@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scr:component xmlns:scr="http://www.osgi.org/xmlns/scr/v1.1.0" activate="activate" deactivate="deactivate" name="org.eclipse.smarthome.model.sitemap.rendering.runtime.internal.workflow.SitemapRenderingDriverImpl">
+   <service>
+      <provide interface="org.eclipse.smarthome.model.sitemap.rendering.runtime.workflow.SitemapRenderingDriver"/>
+      <provide interface="org.eclipse.smarthome.core.events.EventSubscriber"/>
+   </service>
+   <reference bind="setModelRepository" interface="org.eclipse.smarthome.model.core.ModelRepository" name="ModelRepository" unbind="unsetModelRepository"/>
+   <reference bind="setReferenceResolver" interface="org.eclipse.smarthome.model.sitemap.rendering.runtime.reference.ReferenceResolver" name="ReferenceResolver" unbind="unsetReferenceResolver"/>
+   <reference bind="addSubscriber" cardinality="0..n" interface="org.eclipse.smarthome.model.sitemap.rendering.runtime.events.SitemapEventSubscriber" name="Subscriber" policy="dynamic" unbind="removeSubscriber"/>
+   <implementation class="org.eclipse.smarthome.model.sitemap.rendering.runtime.internal.workflow.SitemapRenderingDriverImpl"/>
+</scr:component>

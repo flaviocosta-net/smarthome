@@ -33,6 +33,13 @@ Import-Package:
  org.eclipse.smarthome.io.rest.sitemap,
  org.eclipse.smarthome.model.core,
  org.eclipse.smarthome.model.sitemap,
+ org.eclipse.smarthome.model.sitemap.rendering,
+ org.eclipse.smarthome.model.sitemap.rendering.atom,
+ org.eclipse.smarthome.model.sitemap.rendering.container,
+ org.eclipse.smarthome.model.sitemap.rendering.runtime,
+ org.eclipse.smarthome.model.sitemap.rendering.runtime.events,
+ org.eclipse.smarthome.model.sitemap.rendering.runtime.state,
+ org.eclipse.smarthome.model.sitemap.rendering.style,
  org.eclipse.smarthome.ui.items,
  org.glassfish.jersey.media.sse,
  org.glassfish.jersey.server,
@@ -40,3 +47,4 @@ Import-Package:
  org.slf4j
 Service-Component: OSGI-INF/*.xml
 Automatic-Module-Name: org.eclipse.smarthome.io.rest.sitemap
+Bundle-ActivationPolicy: lazy

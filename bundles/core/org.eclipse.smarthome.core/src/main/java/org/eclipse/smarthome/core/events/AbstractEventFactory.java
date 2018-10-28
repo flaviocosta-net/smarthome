@@ -12,7 +12,9 @@
  */
 package org.eclipse.smarthome.core.events;
 
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 
 import com.google.gson.Gson;
@@ -29,6 +31,10 @@ public abstract class AbstractEventFactory implements EventFactory {
 
     private final Set<String> supportedEventTypes;
 
+    /**
+     * @deprecated Use {@link JsonBindingService} on the subclass instead.
+     */
+    @Deprecated
     private static final Gson JSONCONVERTER = new Gson();
 
     /**
@@ -38,6 +44,16 @@ public abstract class AbstractEventFactory implements EventFactory {
      */
     public AbstractEventFactory(Set<String> supportedEventTypes) {
         this.supportedEventTypes = Collections.unmodifiableSet(supportedEventTypes);
+    }
+
+    /**
+     * Must be called in subclass constructor to define the supported event types, in alternative to the version that
+     * takes a Set.
+     *
+     * @param supportedEventTypes the supported event types
+     */
+    public AbstractEventFactory(String... supportedEventTypes) {
+        this(Collections.unmodifiableSet(new HashSet<>(Arrays.asList(supportedEventTypes))));
     }
 
     @Override

@@ -1,0 +1,31 @@
+// Sitemap transformation rule
+@greedy
+rule RenderThingsSitemap
+    transform def : Registry!ThingRegistry
+    to rend : Rendering!Sitemap {
+
+    currentSitemap = rend;
+
+    rend.type = Rendering!ComponentType#SITEMAP;
+    rend.id = "things";
+    rend.data = new Rendering!Sitemap#Data;
+    rend.data.label = atom("LABEL", "Thing Registry");
+    rend.components ::= def.all;
+}
+
+// Thing transformation rule
+@greedy
+rule RenderThing
+    transform thing : Registry!Thing 
+    to rend : Rendering!Widget {
+
+    currentContainer = rend;
+    valueRef = reference.thing(thing.UID.toString());
+
+    rend.id = valueRef.id;
+    rend.type = Rendering!ComponentType#WIDGET;
+    rend.components = new Sequence;
+    rend.components.add(atom("ICON", "text"));
+    rend.components.add(atom("LABEL", thing.label));
+    rend.components.add(atom("TEXT", valueRef));
+}

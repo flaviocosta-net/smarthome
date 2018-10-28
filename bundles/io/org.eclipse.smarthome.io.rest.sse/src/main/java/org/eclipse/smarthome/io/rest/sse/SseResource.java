@@ -32,6 +32,7 @@ import javax.ws.rs.core.UriInfo;
 
 import org.eclipse.smarthome.core.auth.Role;
 import org.eclipse.smarthome.core.events.Event;
+import org.eclipse.smarthome.io.rest.RESTResource;
 import org.eclipse.smarthome.io.rest.sse.internal.SseEventOutput;
 import org.eclipse.smarthome.io.rest.sse.internal.util.SseUtil;
 import org.glassfish.jersey.media.sse.EventOutput;
@@ -52,12 +53,12 @@ import io.swagger.annotations.ApiResponses;
  * @author Yordan Zhelev - Added Swagger annotations
  *
  */
-@Component(immediate = true, service = SseResource.class)
+@Component(immediate = true, service = { SseResource.class, RESTResource.class })
 @Path(SseResource.PATH_EVENTS)
 @RolesAllowed({ Role.USER })
 @Singleton
 @Api(value = SseResource.PATH_EVENTS, hidden = true)
-public class SseResource {
+public class SseResource implements RESTResource {
 
     public static final String PATH_EVENTS = "events";
 

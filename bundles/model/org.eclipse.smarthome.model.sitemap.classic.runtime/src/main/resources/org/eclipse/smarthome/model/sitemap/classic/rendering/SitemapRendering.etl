@@ -1,0 +1,18 @@
+rule RenderLegacySitemap
+    transform def : Definition!Sitemap
+    to rend : Rendering!Sitemap {
+    
+    rend.data ::= new Rendering!Sitemap.Data;
+    rend.data.id = def.name;
+    rend.data.icon = def.icon;
+    rend.data.label = def.label;
+    
+    rend.components ::= def.children.collect(c|c.equivalent());    
+}
+
+rule RenderWidgetList
+    transform def : Definition!Frame
+    to rend : Rendering!Frame {
+
+    rend.data = def.label;
+}

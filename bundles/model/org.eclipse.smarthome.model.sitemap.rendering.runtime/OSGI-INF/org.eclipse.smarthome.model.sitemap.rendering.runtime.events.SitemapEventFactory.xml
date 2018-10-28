@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scr:component xmlns:scr="http://www.osgi.org/xmlns/scr/v1.1.0" name="org.eclipse.smarthome.model.sitemap.rendering.runtime.events.SitemapEventFactory">
+   <service>
+      <provide interface="org.eclipse.smarthome.core.events.EventFactory"/>
+      <provide interface="org.eclipse.smarthome.model.sitemap.rendering.runtime.events.SitemapEventFactory"/>
+   </service>
+   <reference bind="setJsonBindingService" interface="org.eclipse.smarthome.io.json.JsonBindingService" name="JsonBindingService" unbind="unsetJsonBindingService"/>
+   <implementation class="org.eclipse.smarthome.model.sitemap.rendering.runtime.events.SitemapEventFactory"/>
+</scr:component>

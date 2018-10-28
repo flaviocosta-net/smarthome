@@ -1,0 +1,241 @@
+operation Definition!ContainerData containerBinding() {
+    if (self.item.isDefined()) {
+        return reference.item(self.item);
+    }
+    if (self.thing.isDefined()) {
+        return reference.thing(self.thing);
+    }
+    if (self.sitemap.isDefined()) {
+        return reference.sitemap(self.sitemap);
+    }
+    return reference.none();
+}
+
+operation Definition!ContainerData containerStyle() {
+    if (self.style.isUndefined()) {
+        return null;
+    }
+    if (self.style.propertyString.isDefined()) {
+        return self.style.propertyString.split(";").collect(p|p.split(":")).aggregate(p|p.first(),converter.convert(valueRef, p.second()));
+    }
+    reference.debug(self.style.expressions.aggregate(p|p.name,converter.convert(valueRef, p.value)));
+    return self.style.expressions.aggregate(p|p.name,converter.convert(valueRef, p.value));
+}
+
+operation Definition!ContainerData getLabelText() : Sequence {
+    return Sequence {self.label, valueRef.label, valueRef.id, currentContainer.id};
+}
+
+operation Definition!ContainerData getIconCategory() : Any {
+    var iconId = self.icon;
+    if (iconId.isUndefined()) {
+        iconId = valueRef.category;
+        var sourceType = valueRef.sourceType;
+        if (iconId.isUndefined() and sourceType.isDefined()) {
+            if (sourceType.matches("Group|Contact|Rollershutter")) {
+                iconId = sourceType.toLowerCase();
+            }
+        }
+	    if (iconId.isUndefined()) {
+	        if (self.eContainer.isKindOf(Definition!SmartHomeSitemap)) {
+	            iconId = "sitemap";
+	        } else {
+	            iconId = self.eContainer.eClass.name.toLowerCase();
+	        }
+	    }
+    }
+    return iconId;
+}
+
+operation Definition!Widget getMappingsData() {
+    if (self.mappings.notEmpty()) {
+        return reference.options(valueRef, self.mappings.aggregate(m|m.key,m.value));
+    } else {
+        return reference.options(valueRef);
+    }
+}
+
+// container transformation rules
+@abstract
+rule RenderContainer
+    transform def : Definition!Container
+    to rend : Rendering!Container {
+
+    currentContainer = rend;
+    valueRef = def.data.containerBinding();
+    containerStyle = def.data.containerStyle();
+}
+
+rule RenderSmartHomeSitemap
+    transform def : Definition!SmartHomeSitemap
+    to rend : Rendering!Sitemap
+    extends RenderContainer {
+
+    currentSitemap = rend;
+
+    rend.type = Rendering!ComponentType#SITEMAP;
+    rend.id = def.name;
+    rend.data = new Rendering!Sitemap#Data;
+    rend.data.label = atom("LABEL", def.data.getLabelText());
+    rend.data.icon = atom("ICON", def.data.getIconCategory());
+    rend.components ::= def.components;
+}
+
+rule RenderFrame
+    transform def : Definition!Frame
+    to rend : Rendering!Frame
+    extends RenderContainer {
+
+    rend.type = Rendering!ComponentType#FRAME;
+    rend.id = def.name.ifUndefined(builder.autoId(rend.type));
+    rend.data = atom("LABEL", def.data.getLabelText());
+    rend.components ::= def.components;
+    componentStates.add(reference.state(currentContainer, containerStyle, context));
+}
+
+rule RenderGroup
+    transform def : Definition!Group
+    to rend : Rendering!Page
+    extends RenderContainer {
+
+    rend.type = Rendering!ComponentType#PAGE;
+    rend.id = def.name.ifUndefined(builder.autoId(rend.type));
+    rend.data = new Rendering!AbstractNavigableContainer#Data;
+    rend.data.label = atom("LABEL", def.data.getLabelText());
+    rend.data.icon = atom("ICON", def.data.getIconCategory());
+    if (def.components.notEmpty()) {
+        // explicit subcomponents defined in sitemap
+        rend.components ::= def.components;
+    } else {
+        // generate widgets from items in the group
+        rend.components ::= valueRef.source.members;
+    }
+    componentStates.add(reference.state(currentContainer, containerStyle, context));
+}
+
+// widget transformation rules
+@abstract
+rule RenderWidget
+    transform def : Definition!Widget
+    to rend : Rendering!Widget
+    extends RenderContainer {
+
+    rend.type = Rendering!ComponentType#WIDGET;
+    rend.id = def.name.ifUndefined(builder.autoId(rend.type));
+    rend.components = new Sequence;
+    rend.components.add(atom("LABEL", def.data.getLabelText()));
+    rend.components.add(atom("ICON", def.data.getIconCategory()));
+    componentStates.add(reference.state(currentContainer, containerStyle, context));
+}
+
+rule RenderText
+    transform def : Definition!Text
+    to rend : Rendering!Widget
+    extends RenderWidget {
+
+    var value = def.data.value.ifUndefined(valueRef);
+    rend.components.add(atom("TEXT", value));
+}
+
+rule RenderSwitch
+    transform def : Definition!Switch
+    to rend : Rendering!Widget
+    extends RenderWidget {
+
+    rend.components.add(atom("SWITCH", def.getMappingsData()));
+}
+
+rule RenderSelection
+    transform def : Definition!Selection
+    to rend : Rendering!Widget
+    extends RenderWidget {
+
+    rend.components.add(atom("SELECTION", def.getMappingsData()));
+}
+
+rule RenderSlider
+    transform def : Definition!Slider
+    to rend : Rendering!Widget
+    extends RenderWidget {
+
+    rend.components.add(atom("SLIDER", valueRef));
+}
+
+rule RenderColorPicker
+    transform def : Definition!ColorPicker
+    to rend : Rendering!Widget
+    extends RenderWidget {
+
+    rend.components.add(atom("COLORPICKER", valueRef));
+}
+
+rule RenderMapView
+    transform def : Definition!MapView
+    to rend : Rendering!Widget
+    extends RenderWidget {
+
+    rend.components.add(atom("MAPVIEW", valueRef));
+}
+
+// item transformation rules (for Definition!Group components)
+@abstract
+rule RenderItem
+    transform item : Any 
+    to rend : Rendering!Widget {
+
+    var defaultCategory;
+    switch (item.type) {
+        case "Dimmer": defaultCategory = "slider";
+        case "Color": defaultCategory = "colorpicker";
+        default: defaultCategory = item.type.toLowerCase();
+    }
+
+    rend.type = Rendering!ComponentType#WIDGET;
+    rend.id = item.name;
+    rend.components = new Sequence;
+    rend.components.add(atom("LABEL", Sequence {item.label, item.name}));
+    rend.components.add(atom("ICON", Sequence {item.category, defaultCategory}));
+}
+
+rule RenderDimmerItem
+    transform item : GroupItems!DimmerItem
+    to rend : Rendering!Widget
+    extends RenderItem {
+
+    rend.components.add(atom("SLIDER", reference.item(item.name)));
+}
+
+rule RenderColorItem
+    transform item : GroupItems!ColorItem
+    to rend : Rendering!Widget
+    extends RenderItem {
+
+    rend.components.add(atom("COLORPICKER", reference.item(item.name)));
+}
+
+rule RenderSwitchItem
+    transform item : GroupItems!SwitchItem
+    to rend : Rendering!Widget
+    extends RenderItem {
+
+    rend.components.add(atom("SWITCH", reference.options(reference.item(item.name))));
+}
+
+rule RenderRollershutterItem
+    transform item : GroupItems!RollershutterItem
+    to rend : Rendering!Widget
+    extends RenderSwitchItem {
+
+    // do the same as RenderSwitchItem
+}
+
+// PlayerItem => SitemapFactory.eINSTANCE.createPlayerButtons();
+// ImageItem => SitemapFactory.eINSTANCE.createImage();
+
+rule RenderOtherItem
+    transform item : GroupItems!Item
+    to rend : Rendering!Widget
+    extends RenderItem {
+
+    rend.components.add(atom("TEXT", reference.item(item.name)));
+}

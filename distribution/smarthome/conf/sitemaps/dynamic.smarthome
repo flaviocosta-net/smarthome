@@ -1,0 +1,14 @@
+sitemap dynamic {
+    Frame date {
+        Text today item=DemoDateTime value=[format("%1$tA, %1$td. %1$tb. %1$tY")]
+    }
+    Frame demo {
+        Switch item=Lights icon="light"
+        Text livingroom item=Weather_Temperature value=[format("%.1f °C")] style=[value.color:match(>=25:"orange",>=15:"green",0:"white",<15:"blue");background-color:match(>=25:"lightyellow",>=15:"lightgreen",0:"white",<15:"lightblue")]
+        Group item=Heating style=[display:if(and(DemoNumber>10, Lights==ON),"contents","none")]
+        Group multimedia item=LR_Multimedia_Summary icon="video" {
+            Selection item=LR_TV_Channel mappings=[0:"off", 1:"DasErste", 2:"BBC One", 3:"Cartoon Network"]
+            Slider item=LR_TV_Volume
+        }
+    }
+}

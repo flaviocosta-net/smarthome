@@ -57,6 +57,8 @@ public class InternalGsonBindingService extends GsonBindingService {
 
     @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
     public void addTypeAdapterProvider(GsonTypeAdapterProvider provider) {
+        // add type adapters to the configuration
+        registerTypeAdapters(provider.getTypeAdapters().entrySet());
         providers.add(provider);
     }
 
@@ -72,8 +74,5 @@ public class InternalGsonBindingService extends GsonBindingService {
             setFormattedOutput(prettyPrinting);
             logger.debug("JSON output formatting is activated");
         }
-        // add type adapters to the configuration
-        providers.stream().map(GsonTypeAdapterProvider::getTypeAdapters).map(Map::entrySet)
-                .forEach(this::registerTypeAdapters);
     }
 }

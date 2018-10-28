@@ -1,0 +1,10 @@
+Group:Switch:OR(ON, OFF)   Lights  <light>
+Dimmer   Window_Light "Window lamp" <light> (Lights)
+Dimmer   Door_Light "Door lamp" <light> (Lights)
+Group    Heating
+Dimmer   Heating_Temp  "Temperature [%.1f °C]" <temperature> (Heating)
+Switch   Heating_Power  "Running" (Heating)
+
+Group    LR_Multimedia_Summary
+Number   LR_TV_Channel   "TV Channel" <screen>
+Dimmer   LR_TV_Volume    "TV Volume" <soundvolume>

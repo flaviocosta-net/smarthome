@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scr:component xmlns:scr="http://www.osgi.org/xmlns/scr/v1.1.0" immediate="true" name="org.eclipse.smarthome.model.sitemap.rendering.runtime.SitemapEventFactory">
+   <service>
+      <provide interface="org.eclipse.smarthome.core.events.EventFactory"/>
+   </service>
+   <implementation class="org.eclipse.smarthome.model.sitemap.rendering.runtime.SitemapEventFactory"/>
+</scr:component>

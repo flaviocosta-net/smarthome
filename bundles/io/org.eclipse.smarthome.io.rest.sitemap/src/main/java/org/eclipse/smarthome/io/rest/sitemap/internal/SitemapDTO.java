@@ -14,19 +14,25 @@ package org.eclipse.smarthome.io.rest.sitemap.internal;
 
 /**
  * This is a data transfer object that is used to serialize sitemaps.
- * 
+ *
  * @author Kai Kreuzer - Initial contribution and API
  * @author Chris Jackson
- *
+ * @author Flavio Costa - Added version, type, state and topic
  */
 public class SitemapDTO {
+
+    public int version;
+    public String type;
 
     public String name;
     public String icon;
     public String label;
 
+    public String topic;
+
     public String link;
 
     public PageDTO homepage;
 
+    public PageDTO state;
 }

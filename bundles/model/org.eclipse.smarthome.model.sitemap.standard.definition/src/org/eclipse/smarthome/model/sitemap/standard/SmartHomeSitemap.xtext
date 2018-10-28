@@ -1,0 +1,105 @@
+grammar org.eclipse.smarthome.model.sitemap.standard.SmartHomeSitemap with org.eclipse.xtext.common.Terminals
+
+import "http://www.eclipse.org/emf/2002/Ecore" as ecore
+generate definition "http://www.eclipse.org/smarthome/model/sitemap/standard/SmartHomeSitemap"
+
+SmartHomeSitemap:
+    'sitemap' name=ID data=ContainerData '{'
+    components+=Container+
+    '}';
+
+Container:
+    SmartHomeSitemap | Group | Frame | Widget;
+
+HRef:
+    ID | UID;
+
+UID:
+    ID ':' ID ':' ID;
+
+PropertyName:
+    ID ('.' ID)*;
+
+ExpressionProperty:
+    name=PropertyName ':' value=SitemapExpression;
+
+PropertyList:
+    propertyString=STRING | ('[' expressions+=ExpressionProperty (';' expressions+=ExpressionProperty)* ']');
+
+TextValue:
+    ('[' SitemapExpression ']' | ConstantSitemapExpression);
+
+enum Operator:
+    EQUAL="==" | GTE=">=" | LTE="<=" |
+    NOTEQUAL="!=" | GREATER=">" | LESS="<" |
+    NOT="!";
+
+enum ExpressionType:
+    CONSTANT="ConstantSitemapExpression" | PREDICATE="PredicateSitemapExpression" | FUNCTION="FunctionSitemapExpression" |
+    MONAD="MonadSitemapExpression";
+
+SitemapExpression:
+    ConstantSitemapExpression | PredicateSitemapExpression | FunctionSitemapExpression | MonadSitemapExpression;
+
+MonadSitemapExpression:
+    state=(ConstantSitemapExpression | PredicateSitemapExpression) ':' result=XState;
+
+ConstantSitemapExpression:
+    (value=XState);
+
+PredicateSitemapExpression:
+    (href=HRef)? (operator=Operator) (sign=('-' | '+'))? (value=XState);
+
+FunctionSitemapExpression:
+    name=ID '(' arguments+=SitemapExpression (',' arguments+=SitemapExpression)* ')';
+
+Mapping:
+    key=XState ':' value=SitemapExpression;
+
+Frame:
+    'Frame' name=ID? data=ContainerData '{' components+=Container+ '}';
+
+Group:
+    'Group' name=ID? data=ContainerData ('{' components+=Container+ '}')?;
+
+Widget:
+    Text | Switch | Selection | Slider | ColorPicker | MapView;
+
+ContainerData:
+    {ContainerData} ((('sitemap=' sitemap=ID) | ('thing=' thing=UID) | ('item=' item=ID))? & ('icon=' icon=TextValue)? &
+    ('label=' label=TextValue)? & ('value=' value=TextValue)? & ('style=' style=PropertyList)?);
+
+Text:
+    'Text' name=ID? data=ContainerData;
+
+Slider:
+    'Slider' name=ID? data=ContainerData;
+
+Switch:
+    'Switch' name=ID? (data=ContainerData &
+        ('mappings=[' mappings+=Mapping (',' mappings+=Mapping)* ']')?);
+
+Selection:
+    'Selection' name=ID? (data=ContainerData &
+        ('mappings=[' mappings+=Mapping (',' mappings+=Mapping)* ']')?);
+
+ColorPicker:
+    'ColorPicker' name=ID? data=ContainerData;
+
+MapView:
+    'MapView' name=ID? data=ContainerData;
+
+/*
+Was used on Mapping.key
+Number returns ecore::EBigDecimal:
+    '-'? (INT | FLOAT);
+*/
+ 
+XState returns ecore::EString:
+    INT | FLOAT | ID | STRING;
+
+terminal FLOAT returns ecore::EBigDecimal:
+    INT '.' INT;
+
+@Override terminal ID:
+    '^'?('a'..'z'|'A'..'Z'|'_')('a'..'z'|'A'..'Z'|'_'|'-'|'0'..'9')*;

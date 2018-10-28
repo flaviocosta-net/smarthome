@@ -1,0 +1,60 @@
+pre {
+    var builder = reference.builder();
+    var containerStyle;
+}
+
+// built-in sitemap functions (sitemap_...)
+operation sitemap_and(col : Collection) {
+    return col.excludes(false);
+}
+
+operation sitemap_or(col : Collection) {
+    return col.includes(true);
+}
+
+operation sitemap_not(value : Boolean) {
+    return not value;
+}
+
+operation sitemap_if(cond : Boolean, whentrue : Any, whenfalse: Any) {
+    if (cond) {return whentrue;} else {return whenfalse;}
+}
+
+operation sitemap_match(seq : Sequence) {
+    return seq.selectOne(v|v.isDefined());
+}
+
+operation sitemap_format(value : String) {
+    var state = valueRef.value;
+    if (state.isUndefined() or state.isTypeOf(Items!UnDefType)) {
+        return null;
+    }
+    return state.format(value);
+}
+
+operation sitemap_transform(type : String, transformation : String) {
+    return sitemap_transform(type, transformation, null);
+}
+
+operation sitemap_transform(type : String, transformation : String, value : String) {
+    if (value.isUndefined()) {
+        value = reference.formatting(valueRef);
+    }
+    if (value.isUndefined()) {
+        // cannot transform a null value
+        return null;
+    }
+    return reference.transformation(type, transformation, value);
+}
+
+// transformation helper operations
+operation atom(typeName : String, defData: Any) {
+    var atom = builder.atom(typeName);
+    if (defData.isKindOf(Sequence)) {
+        defData = defData.selectOne(d|d.isDefined());
+    }
+    var rendData = converter.convert(valueRef, defData);
+	componentStates.add(reference.state(atom, rendData, containerStyle, context));
+    return atom;
+}
+

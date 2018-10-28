@@ -12,14 +12,11 @@
  */
 package org.eclipse.smarthome.io.rest.sitemap.internal;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  * This is a data transfer object that is used to serialize page content.
  *
  * @author Kai Kreuzer - Initial contribution and API
- *
+ * @author Flavio Costa - Moved attributes to {@link ClassicPageDTO}
  */
 public class PageDTO {
 
@@ -28,11 +25,6 @@ public class PageDTO {
     public String title;
     public String icon;
     public String link;
-    public PageDTO parent;
-    public boolean leaf;
-    public boolean timeout;
-
-    public List<WidgetDTO> widgets = new ArrayList<WidgetDTO>();
 
     public PageDTO() {
     }

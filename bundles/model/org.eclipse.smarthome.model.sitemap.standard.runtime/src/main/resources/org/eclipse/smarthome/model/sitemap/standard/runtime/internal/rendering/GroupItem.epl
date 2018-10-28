@@ -1,0 +1,5 @@
+pattern GroupItemMembers
+    def : Definition!Group, groupItem : Items!GroupItem, item : Items!Item {
+    
+    match : def.data.item = groupItem.name and groupItem.members.contains(item) 
+}

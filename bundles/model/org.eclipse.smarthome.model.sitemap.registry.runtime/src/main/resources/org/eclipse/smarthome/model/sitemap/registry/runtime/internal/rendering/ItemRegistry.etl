@@ -1,0 +1,45 @@
+// Sitemap transformation rule
+@greedy
+rule RenderItemsSitemap
+    transform def : Registry!ItemRegistry
+    to rend : Rendering!Sitemap {
+
+    currentSitemap = rend;
+
+    rend.type = Rendering!ComponentType#SITEMAP;
+    rend.id = "items";
+    rend.data = new Rendering!Sitemap#Data;
+    rend.data.label = atom("LABEL", "Item Registry");
+    rend.components ::= def.all;  
+}
+
+// guard to exclude base items from GroupItems
+operation Registry!Item isNotBaseItem() {
+    return self.eventPublisher.isDefined();
+}
+
+// Item transformation rule
+@greedy
+rule RenderItem
+    transform item : Registry!Item
+    to rend : Rendering!Widget {
+
+    guard: item.isNotBaseItem()
+
+    currentContainer = rend;
+    valueRef = reference.item(item.name);
+
+    var defaultCategory;
+    switch (item.type) {
+        case "Dimmer": defaultCategory = "slider";
+        case "Color": defaultCategory = "colorpicker";
+        default: defaultCategory = item.type.toLowerCase();
+    }
+
+    rend.id = valueRef.id;
+    rend.type = Rendering!ComponentType#WIDGET;
+    rend.components = new Sequence;
+    rend.components.add(atom("ICON", item.category.ifUndefined(defaultCategory)));
+    rend.components.add(atom("LABEL", item.label.ifUndefined(item.name)));
+    rend.components.add(atom("TEXT", valueRef));
+}

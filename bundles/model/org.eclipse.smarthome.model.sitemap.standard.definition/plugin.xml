@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+   <extension point="org.eclipse.emf.ecore.generated_package">
+      <package
+            class="org.eclipse.smarthome.model.sitemap.standard.definition.DefinitionPackage"
+            uri="http://www.eclipse.org/smarthome/model/sitemap/standard/SmartHomeSitemap"
+            genModel="model/generated/SmartHomeSitemap.genmodel">
+      </package>
+   </extension>
+</plugin>

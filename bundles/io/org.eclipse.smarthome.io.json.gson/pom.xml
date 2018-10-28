@@ -16,9 +16,5 @@
 
   <name>Eclipse SmartHome JSON Data Binding Gson Implementation</name>
 
-  <properties>
-    <bundle.symbolicName>org.eclipse.smarthome.io.json.gson</bundle.symbolicName>
-    <bundle.namespace>org.eclipse.smarthome.io.json.gson</bundle.namespace>
-  </properties>
   <description>Provides JSON data binding support for Eclipse SmartHome based on Gson.</description>
 </project>

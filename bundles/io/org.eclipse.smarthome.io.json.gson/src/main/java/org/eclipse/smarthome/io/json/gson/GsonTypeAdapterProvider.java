@@ -15,7 +15,8 @@ package org.eclipse.smarthome.io.json.gson;
 import java.util.Map;
 
 /**
- * Provider of Gson Type Adapter instances.
+ * Provider of Gson Type Adapter instances. This interface must be implemented by Components that will be registered as
+ * Type Adapters when using Gson for data binding.
  *
  * @author Flavio Costa - Initial contribution
  */

@@ -16,9 +16,5 @@
 
   <name>Eclipse SmartHome JSON Data Binding Abstraction Layer</name>
 
-  <properties>
-    <bundle.symbolicName>org.eclipse.smarthome.io.json</bundle.symbolicName>
-    <bundle.namespace>org.eclipse.smarthome.io.json</bundle.namespace>
-  </properties>
   <description>Provides JSON data binding support for Eclipse SmartHome without exposing which concrete implementation is used.</description>
 </project>

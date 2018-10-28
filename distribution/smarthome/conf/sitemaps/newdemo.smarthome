@@ -1,0 +1,21 @@
+sitemap newdemo label="New Demo Sitemap" {
+	Frame label="Demo Items" {
+		Text item=DemoContact label="Contact" value=[transform-map("en.map")]
+		Text item=DemoString label="Message"
+		Text item=DemoDateTime label="Date" value=[format("%1$tA, %1$td.%1$tm.%1$tY")]
+		Group item=DemoSwitchGroup icon="icon1"
+	}
+	Frame label="Magic Test Items" {
+	   ColorPicker item=MagicColor
+	   Switch item=MagicOnOff
+	   Slider item=MagicDimmer
+	}
+	Frame label="Location" {
+		MapView item=DemoLocation style="height: 10"
+	}
+	Frame label="Weather" {
+		Text item=Weather_Temperature
+		Text item=Weather_Pressure
+		Text item=Weather_Humidity
+	}
+}

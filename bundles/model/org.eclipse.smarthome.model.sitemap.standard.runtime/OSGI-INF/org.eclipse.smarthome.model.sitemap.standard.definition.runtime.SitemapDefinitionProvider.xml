@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scr:component xmlns:scr="http://www.osgi.org/xmlns/scr/v1.1.0" activate="activate" deactivate="deactivate" name="org.eclipse.smarthome.model.sitemap.standard.definition.runtime.SitemapDefinitionProvider">
+   <service>
+      <provide interface="org.eclipse.smarthome.model.sitemap.definition.runtime.SitemapDefinitionProvider"/>
+      <provide interface="org.eclipse.smarthome.model.core.ModelRepositoryChangeListener"/>
+   </service>
+   <reference bind="setModelRepository" interface="org.eclipse.smarthome.model.core.ModelRepository" name="ModelRepository" unbind="unsetModelRepository"/>
+   <implementation class="org.eclipse.smarthome.model.sitemap.definition.runtime.EMFSitemapDefinitionProvider"/>
+   <property name="sitemap.type" type="String" value="smarthome"/>
+</scr:component>

@@ -13,9 +13,9 @@
 package org.eclipse.smarthome.io.rest.sitemap.internal;
 
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Locale;
@@ -39,6 +39,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.EntityTag;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -80,6 +81,11 @@ import org.eclipse.smarthome.model.sitemap.Video;
 import org.eclipse.smarthome.model.sitemap.VisibilityRule;
 import org.eclipse.smarthome.model.sitemap.Webview;
 import org.eclipse.smarthome.model.sitemap.Widget;
+import org.eclipse.smarthome.model.sitemap.rendering.atom.IconAtom;
+import org.eclipse.smarthome.model.sitemap.rendering.container.Sitemap.Data;
+import org.eclipse.smarthome.model.sitemap.rendering.runtime.RenderingModel;
+import org.eclipse.smarthome.model.sitemap.rendering.runtime.SitemapRenderingProvider;
+import org.eclipse.smarthome.model.sitemap.rendering.runtime.events.SitemapEventFactory;
 import org.eclipse.smarthome.ui.items.ItemUIRegistry;
 import org.glassfish.jersey.media.sse.EventOutput;
 import org.glassfish.jersey.media.sse.OutboundEvent;
@@ -112,12 +118,24 @@ import io.swagger.annotations.ApiResponses;
  * @author Kai Kreuzer - Initial contribution and API
  * @author Chris Jackson
  * @author Yordan Zhelev - Added Swagger annotations
+ * @author Flavio Costa - Added DS Annotations and support for new sitemap (rendering model)
  */
 @Component(service = RESTResource.class)
 @Path(SitemapResource.PATH_SITEMAPS)
 @RolesAllowed({ Role.USER, Role.ADMIN })
 @Api(value = SitemapResource.PATH_SITEMAPS)
 public class SitemapResource implements RESTResource, SitemapSubscriptionCallback, BroadcasterListener<OutboundEvent> {
+
+    private static final String SITEMAP_RENDERING = "rendering";
+
+    private static enum SitemapVersion {
+        CLASSIC,
+        RENDERING;
+
+        public int number() {
+            return ordinal() + 1;
+        }
+    };
 
     private final Logger logger = LoggerFactory.getLogger(SitemapResource.class);
 
@@ -144,11 +162,13 @@ public class SitemapResource implements RESTResource, SitemapSubscriptionCallbac
 
     private LocaleService localeService;
 
-    private final java.util.List<SitemapProvider> sitemapProviders = new ArrayList<>();
+    private SitemapProvider classicSitemapProvider;
+
+    private final Map<String, SitemapRenderingProvider> renderingProviders = new HashMap<>();
 
     private final Map<String, EventOutput> eventOutputs = new MapMaker().weakValues().makeMap();
 
-    private ScheduledExecutorService scheduler = ThreadPoolManager
+    private final ScheduledExecutorService scheduler = ThreadPoolManager
             .getScheduledPool(ThreadPoolManager.THREAD_POOL_NAME_COMMON);
 
     private ScheduledFuture<?> cleanSubscriptionsJob;
@@ -201,13 +221,22 @@ public class SitemapResource implements RESTResource, SitemapSubscriptionCallbac
         this.subscriptions = null;
     }
 
-    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
-    public void addSitemapProvider(SitemapProvider provider) {
-        sitemapProviders.add(provider);
+    @Reference(policy = ReferencePolicy.DYNAMIC)
+    public void setSitemapProvider(SitemapProvider provider) {
+        classicSitemapProvider = provider;
     }
 
-    public void removeSitemapProvider(SitemapProvider provider) {
-        sitemapProviders.remove(provider);
+    public void unsetSitemapProvider(SitemapProvider provider) {
+        classicSitemapProvider = null;
+    }
+
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
+    public void addSitemapRenderingProvider(SitemapRenderingProvider provider) {
+        renderingProviders.put(provider.getSitemapType(), provider);
+    }
+
+    public void removeSitemapRenderingProvider(SitemapRenderingProvider provider) {
+        renderingProviders.remove(provider.getSitemapType(), provider);
     }
 
     @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
@@ -246,10 +275,59 @@ public class SitemapResource implements RESTResource, SitemapSubscriptionCallbac
     }
 
     @GET
+    @Path("/{sitemapname: [a-zA-Z_0-9]*}/" + SITEMAP_RENDERING)
+    @Produces(MediaType.APPLICATION_JSON)
+    @ApiOperation(value = "Retrieves the rendering model for a sitemap.", response = org.eclipse.smarthome.model.sitemap.rendering.container.Sitemap.class)
+    @ApiResponses(value = { @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 300, message = "Multiple sitemaps defined for the id provided."),
+            @ApiResponse(code = 304, message = "Sitemap in cache has not changed."),
+            @ApiResponse(code = 404, message = "Sitemap with requested name does not exist."),
+            @ApiResponse(code = 500, message = "Sitemap rendering failed.") })
+    public Response getRenderingModel(@Context HttpHeaders headers,
+            @HeaderParam(HttpHeaders.IF_NONE_MATCH) @ApiParam(value = "cached rendering model ETag") EntityTag eTag,
+            @HeaderParam(HttpHeaders.ACCEPT_LANGUAGE) @ApiParam(value = "language") String language,
+            @PathParam("sitemapname") @ApiParam(value = "sitemap name") String sitemapname) {
+        final Locale locale = localeService.getLocale(language);
+        logger.debug("Received HTTP GET request at '{}'", uriInfo.getPath());
+
+        Set<String> types = getSitemapTypes(sitemapname);
+        switch (types.size()) {
+            case 0:
+                logger.info("Received HTTP GET request at '{}' for the unknown sitemap '{}'.", uriInfo.getPath(),
+                        sitemapname);
+                throw new WebApplicationException(404);
+            case 1:
+                String sitemapType = types.iterator().next();
+                org.eclipse.smarthome.model.sitemap.rendering.container.Sitemap sitemap = renderingProviders
+                        .get(sitemapType).getRenderingModel(sitemapname).getSitemap();
+                if (sitemap == null) {
+                    throw new WebApplicationException("Sitemap rendering failed", 500);
+                }
+                EntityTag entityTag = new EntityTag(String.valueOf(sitemap.hashCode()));
+                // ResponseBuilder builder = request.evaluatePreconditions(tag);
+                // if (builder != null) {
+                // TODO this instead of the line below?
+                if (entityTag.equals(eTag)) {
+                    return Response.notModified(entityTag).build();
+                }
+                if (!sitemapname.equals(sitemap.getId())) {
+                    logger.warn("Id '{}' defined in the sitemap does not match the name '{}'", sitemap.getId(),
+                            sitemapname);
+                }
+                return Response.ok(sitemap).tag(entityTag).build();
+            default:
+                logger.warn("HTTP GET request at '{}' matches multiple sitemap types: '{}'.", uriInfo.getPath(), types);
+                String message = String.format("Multiple Choices for '%s': %s", sitemapname, types.toString());
+                throw new WebApplicationException(message, 300);
+        }
+    }
+
+    @GET
     @Path("/{sitemapname: [a-zA-Z_0-9]*}/{pageid: [a-zA-Z_0-9]*}")
     @Produces(MediaType.APPLICATION_JSON)
     @ApiOperation(value = "Polls the data for a sitemap.", response = PageDTO.class)
     @ApiResponses(value = { @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 300, message = "Multiple sitemaps defined for the id provided."),
             @ApiResponse(code = 404, message = "Sitemap with requested name does not exist or page does not exist, or page refers to a non-linkable widget"),
             @ApiResponse(code = 400, message = "Invalid subscription id has been provided.") })
     public Response getPageData(@Context HttpHeaders headers,
@@ -268,17 +346,30 @@ public class SitemapResource implements RESTResource, SitemapSubscriptionCallbac
             }
         }
 
-        boolean timeout = false;
-        if (headers.getRequestHeader("X-Atmosphere-Transport") != null) {
-            // Make the REST-API pseudo-compatible with openHAB 1.x
-            // The client asks Atmosphere for server push functionality,
-            // so we do a simply listening for changes on the appropriate items
-            // The blocking has a timeout of 30 seconds. If this timeout is reached,
-            // we notice this information in the response object.
-            timeout = blockUnlessChangeOccurs(sitemapname, pageId);
+        Set<String> types = getSitemapTypes(sitemapname);
+        switch (types.size()) {
+            case 0:
+                logger.info("Received HTTP GET request at '{}' for the unknown sitemap '{}'.", uriInfo.getPath(),
+                        sitemapname);
+                throw new WebApplicationException(404);
+            case 1:
+                boolean timeout = false;
+                if (headers.getRequestHeader("X-Atmosphere-Transport") != null) {
+                    // Make the REST-API pseudo-compatible with openHAB 1.x
+                    // The client asks Atmosphere for server push functionality,
+                    // so we do a simply listening for changes on the appropriate items
+                    // The blocking has a timeout of 30 seconds. If this timeout is reached,
+                    // we notice this information in the response object.
+                    timeout = blockUnlessChangeOccurs(sitemapname, pageId);
+                }
+                PageDTO responseObject = getPageBean(sitemapname, pageId, uriInfo.getBaseUriBuilder().build(), locale,
+                        timeout);
+                return Response.ok(responseObject).build();
+            default:
+                logger.warn("HTTP GET request at '{}' matches multiple sitemap types: '{}'.", uriInfo.getPath(), types);
+                String message = String.format("Multiple Choices for '%s': %s", sitemapname, types.toString());
+                throw new WebApplicationException(message, 300);
         }
-        PageDTO responseObject = getPageBean(sitemapname, pageId, uriInfo.getBaseUriBuilder().build(), locale, timeout);
-        return Response.ok(responseObject).build();
     }
 
     /**
@@ -345,18 +436,34 @@ public class SitemapResource implements RESTResource, SitemapSubscriptionCallbac
         return eventOutput;
     }
 
-    private PageDTO getPageBean(String sitemapName, String pageId, URI uri, Locale locale, boolean timeout) {
-        Sitemap sitemap = getSitemap(sitemapName);
+    private Set<String> getSitemapTypes(String sitemapName) {
+
+        Set<String> types = new HashSet<>();
+
+        for (SitemapRenderingProvider provider : renderingProviders.values()) {
+            if (provider.getSitemapNames().contains(sitemapName)) {
+                types.add(provider.getSitemapType());
+            }
+        }
+        if (classicSitemapProvider.getSitemapNames().contains(sitemapName)) {
+            types.add(SitemapVersion.CLASSIC.name().toLowerCase());
+        }
+
+        return types;
+    }
+
+    private ClassicPageDTO getPageBean(String sitemapName, String pageId, URI uri, Locale locale, boolean timeout) {
+        Sitemap sitemap = getClassicSitemap(sitemapName);
         if (sitemap != null) {
             if (pageId.equals(sitemap.getName())) {
                 EList<Widget> children = itemUIRegistry.getChildren(sitemap);
-                return createPageBean(sitemapName, sitemap.getLabel(), sitemap.getIcon(), sitemap.getName(), children,
-                        false, isLeaf(children), uri, locale, timeout);
+                return createClassicPageBean(sitemapName, sitemap.getLabel(), sitemap.getIcon(), sitemap.getName(),
+                        children, false, isLeaf(children), uri, locale, timeout);
             } else {
                 Widget pageWidget = itemUIRegistry.getWidget(sitemap, pageId);
                 if (pageWidget instanceof LinkableWidget) {
                     EList<Widget> children = itemUIRegistry.getChildren((LinkableWidget) pageWidget);
-                    PageDTO pageBean = createPageBean(sitemapName, itemUIRegistry.getLabel(pageWidget),
+                    ClassicPageDTO pageBean = createClassicPageBean(sitemapName, itemUIRegistry.getLabel(pageWidget),
                             itemUIRegistry.getCategory(pageWidget), pageId, children, false, isLeaf(children), uri,
                             locale, timeout);
                     EObject parentPage = pageWidget.eContainer();
@@ -395,34 +502,54 @@ public class SitemapResource implements RESTResource, SitemapSubscriptionCallbac
 
     public Collection<SitemapDTO> getSitemapBeans(URI uri) {
         Collection<SitemapDTO> beans = new LinkedList<SitemapDTO>();
-        Set<String> names = new HashSet<>();
         logger.debug("Received HTTP GET request at '{}'.", UriBuilder.fromUri(uri).build().toASCIIString());
-        for (SitemapProvider provider : sitemapProviders) {
+        // Rendering models
+        for (SitemapRenderingProvider provider : renderingProviders.values()) {
             for (String modelName : provider.getSitemapNames()) {
-                Sitemap sitemap = provider.getSitemap(modelName);
-                if (sitemap != null) {
-                    if (!names.contains(modelName)) {
-                        names.add(modelName);
-                        SitemapDTO bean = new SitemapDTO();
-                        bean.name = modelName;
-                        bean.icon = sitemap.getIcon();
-                        bean.label = sitemap.getLabel();
-                        bean.link = UriBuilder.fromUri(uri).path(bean.name).build().toASCIIString();
-                        bean.homepage = new PageDTO();
-                        bean.homepage.link = bean.link + "/" + sitemap.getName();
-                        beans.add(bean);
-                    } else {
-                        logger.warn("Found duplicate sitemap name '{}' - ignoring it. Please check your configuration.",
-                                modelName);
+                RenderingModel renderingModel = provider.getRenderingModel(modelName);
+                if (renderingModel != null) {
+                    Data data = renderingModel.getSitemap().getData();
+                    SitemapDTO bean = new SitemapDTO();
+                    bean.version = SitemapVersion.RENDERING.number();
+                    bean.type = provider.getSitemapType();
+                    bean.name = modelName;
+                    IconAtom iconAtom = data.getIcon();
+                    if (iconAtom != null) {
+                        bean.icon = iconAtom.as(String.class);
                     }
+                    bean.label = data.getLabel().as(String.class);
+                    bean.link = UriBuilder.fromUri(uri).path(bean.name).build().toASCIIString();
+                    bean.topic = String.format(SitemapEventFactory.SITEMAP_TOPIC_ROOT + "*", bean.type, bean.name);
+                    bean.homepage = new PageDTO();
+                    bean.homepage.link = UriBuilder.fromUri(uri).path(SitemapRenderingResource.PATH_RENDERING)
+                            .path(bean.name).build().toASCIIString();
+                    bean.state = new PageDTO();
+                    bean.state.link = UriBuilder.fromUri(uri).path(SitemapRenderingResource.PATH_RENDERING)
+                            .path(bean.name).path(SitemapRenderingResource.PATH_STATE).build().toASCIIString();
+                    beans.add(bean);
                 }
+            }
+        }
+        // Classic sitemaps
+        for (String modelName : classicSitemapProvider.getSitemapNames()) {
+            Sitemap sitemap = classicSitemapProvider.getSitemap(modelName);
+            if (sitemap != null) {
+                SitemapDTO bean = new SitemapDTO();
+                bean.version = SitemapVersion.CLASSIC.number();
+                bean.name = modelName;
+                bean.icon = sitemap.getIcon();
+                bean.label = sitemap.getLabel();
+                bean.link = UriBuilder.fromUri(uri).path(bean.name).build().toASCIIString();
+                bean.homepage = new ClassicPageDTO();
+                bean.homepage.link = bean.link + "/" + sitemap.getName();
+                beans.add(bean);
             }
         }
         return beans;
     }
 
     public SitemapDTO getSitemapBean(String sitemapname, URI uri, Locale locale) {
-        Sitemap sitemap = getSitemap(sitemapname);
+        Sitemap sitemap = getClassicSitemap(sitemapname);
         if (sitemap != null) {
             return createSitemapBean(sitemapname, sitemap, uri, locale);
         } else {
@@ -440,14 +567,14 @@ public class SitemapResource implements RESTResource, SitemapSubscriptionCallbac
         bean.label = sitemap.getLabel();
 
         bean.link = UriBuilder.fromUri(uri).path(SitemapResource.PATH_SITEMAPS).path(bean.name).build().toASCIIString();
-        bean.homepage = createPageBean(sitemap.getName(), sitemap.getLabel(), sitemap.getIcon(), sitemap.getName(),
-                itemUIRegistry.getChildren(sitemap), true, false, uri, locale, false);
+        bean.homepage = createClassicPageBean(sitemap.getName(), sitemap.getLabel(), sitemap.getIcon(),
+                sitemap.getName(), itemUIRegistry.getChildren(sitemap), true, false, uri, locale, false);
         return bean;
     }
 
-    private PageDTO createPageBean(String sitemapName, String title, String icon, String pageId, EList<Widget> children,
-            boolean drillDown, boolean isLeaf, URI uri, Locale locale, boolean timeout) {
-        PageDTO bean = new PageDTO();
+    private ClassicPageDTO createClassicPageBean(String sitemapName, String title, String icon, String pageId,
+            EList<Widget> children, boolean drillDown, boolean isLeaf, URI uri, Locale locale, boolean timeout) {
+        ClassicPageDTO bean = new ClassicPageDTO();
         bean.timeout = timeout;
         bean.id = pageId;
         bean.title = title;
@@ -513,7 +640,7 @@ public class SitemapResource implements RESTResource, SitemapSubscriptionCallbac
                 }
             } else if (children.size() > 0) {
                 String pageName = itemUIRegistry.getWidgetId(linkableWidget);
-                bean.linkedPage = createPageBean(sitemapName, itemUIRegistry.getLabel(widget),
+                bean.linkedPage = createClassicPageBean(sitemapName, itemUIRegistry.getLabel(widget),
                         itemUIRegistry.getCategory(widget), pageName, drillDown ? children : null, drillDown,
                         isLeaf(children), uri, locale, false);
             }
@@ -617,20 +744,13 @@ public class SitemapResource implements RESTResource, SitemapSubscriptionCallbac
         return true;
     }
 
-    private Sitemap getSitemap(String sitemapname) {
-        for (SitemapProvider provider : sitemapProviders) {
-            Sitemap sitemap = provider.getSitemap(sitemapname);
-            if (sitemap != null) {
-                return sitemap;
-            }
-        }
-
-        return null;
+    private Sitemap getClassicSitemap(String sitemapname) {
+        return classicSitemapProvider.getSitemap(sitemapname);
     }
 
     private boolean blockUnlessChangeOccurs(String sitemapname, String pageId) {
         boolean timeout = false;
-        Sitemap sitemap = getSitemap(sitemapname);
+        Sitemap sitemap = getClassicSitemap(sitemapname);
         if (sitemap != null) {
             if (pageId.equals(sitemap.getName())) {
                 EList<Widget> children = itemUIRegistry.getChildren(sitemap);

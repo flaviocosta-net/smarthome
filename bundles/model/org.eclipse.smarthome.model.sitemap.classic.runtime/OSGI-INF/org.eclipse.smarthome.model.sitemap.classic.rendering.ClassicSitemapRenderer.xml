@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scr:component xmlns:scr="http://www.osgi.org/xmlns/scr/v1.1.0" immediate="true" name="org.eclipse.smarthome.model.sitemap.classic.rendering.ClassicSitemapRenderer">
+   <service>
+      <provide interface="org.eclipse.smarthome.model.sitemap.rendering.runtime.SitemapRenderingProvider"/>
+   </service>
+   <reference bind="setSitemapProvider" interface="org.eclipse.smarthome.model.sitemap.SitemapProvider" name="SitemapProvider" unbind="unsetSitemapProvider"/>
+   <reference bind="setSitemapRenderingDriver" interface="org.eclipse.smarthome.model.sitemap.rendering.runtime.workflow.SitemapRenderingDriver" name="SitemapRenderingDriver" unbind="unsetSitemapRenderingDriver"/>
+   <implementation class="org.eclipse.smarthome.model.sitemap.classic.rendering.ClassicSitemapRenderer"/>
+</scr:component>
